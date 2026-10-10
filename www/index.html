@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ml"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roopakoottile Kaattalan</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--ac:#e8590c;--bd:#e3e6ee;--ok:#2b8a3e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141a;--card:#1c1f28;--tx:#eceef4;--mu:#9aa1b2;--bd:#2c3140;--ac:#ff8a4c;--ok:#69db7c}}
+:root[data-theme="dark"]{--bg:#12141a;--card:#1c1f28;--tx:#eceef4;--mu:#9aa1b2;--bd:#2c3140;--ac:#ff8a4c;--ok:#69db7c}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:640px;margin:auto;padding:12px}
+h1{font-size:20px;margin:4px 0 10px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;padding:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:12px;font-size:16px;font-weight:600}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 4px}
+input[type=text],select,textarea{width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px;font-family:inherit}
+textarea{min-height:200px;resize:vertical;font-family:ui-monospace,Menlo,monospace}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{padding:11px 14px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:15px;font-weight:600}
+.btn.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.big{flex:1}
+.mu{color:var(--mu);font-size:13px}
+.hide{display:none}
+img.pv{max-width:100%;max-height:220px;border-radius:10px;margin-top:8px}
+.big4{font-size:30px;letter-spacing:6px;text-align:center;font-weight:800}
+.match{background:var(--ok);color:#fff;border-radius:12px;padding:12px;text-align:center;font-weight:700;margin-top:10px}
+.nomatch{border:1px dashed var(--bd);border-radius:12px;padding:10px;text-align:center;margin-top:10px;color:var(--mu)}
+.res{display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--bd)}
+.res b{font-family:ui-monospace,Menlo,monospace;font-size:18px;letter-spacing:2px}
+.bar{height:6px;border-radius:3px;background:var(--bd);width:80px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.tag{font-size:12px;color:var(--mu);text-align:right}
+</style></head><body>
+<h1>🎟️ Roopakoottile Kaattalan</h1>
+<div class="tabs"><button id="t1" class="on">📝 Notepad</button><button id="t2">📷 Scan</button></div>
+
+<section id="p1">
+ <div class="card">
+  <label>Saved lists</label>
+  <select id="saved"></select>
+  <div class="row"><button class="btn" id="load">Open</button><button class="btn" id="del">Delete</button><button class="btn" id="new">New</button></div>
+  <label>List name</label>
+  <input type="text" id="name" placeholder="e.g. My lucky numbers">
+  <label>Numbers (4 digit, comma separated – paste anything, no limit)</label>
+  <textarea id="box" placeholder="1234, 5678, 9012, ..."></textarea>
+  <div class="mu" id="cnt">0 numbers</div>
+  <div class="row">
+   <button class="btn p big" id="save">💾 Save</button>
+   <button class="btn" id="clean">Clean up</button>
+   <button class="btn" id="dl">⬇ .txt</button>
+  </div>
+  <div class="mu" id="msg1" style="margin-top:8px"></div>
+ </div>
+</section>
+
+<section id="p2" class="hide">
+ <div class="card">
+  <b>1. Scan numbers</b>
+  <label>Type / paste numbers to check (4 digit, any amount, comma or space separated)</label>
+  <textarea id="man" style="min-height:120px" placeholder="1234, 5678, 9012 ..."></textarea>
+  <div class="mu" id="cnt2"></div>
+  <div class="mu" id="msg2"></div>
+ </div>
+ <div class="card">
+  <b>2. Compare with notepad numbers</b>
+  <label>Saved list</label><select id="src"></select>
+  <label>…or text file</label><input type="file" id="tf" accept=".txt,text/plain">
+  <div class="mu" id="srcinfo"></div>
+  <div class="row"><button class="btn p big" id="go">✅ Check</button></div>
+ </div>
+ <div id="out"></div>
+</section>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY='lottery_lists_v1';
+let lists={};let fileNums=null;let photo=null;
+try{lists=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){lists={}}
+const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(lists))}catch(e){$('msg1').textContent='⚠ Could not save on this browser.'}};
+const parse=t=>(t||'').match(/\d{4}/g)||[];
+function tab(n){$('p1').classList.toggle('hide',n!=1);$('p2').classList.toggle('hide',n!=2);$('t1').classList.toggle('on',n==1);$('t2').classList.toggle('on',n==2);if(n==2)fill()}
+$('t1').onclick=()=>tab(1);$('t2').onclick=()=>tab(2);
+function fill(){const names=Object.keys(lists);const esc=n=>n.replace(/</g,'&lt;');
+ const o='<option value="">— none —</option>'+names.map(n=>`<option>${esc(n)}</option>`).join('');
+ const s1=$('saved').value,s2=$('src').value;$('saved').innerHTML=o;
+ $('src').innerHTML=o+'<option value="__box">(current Notepad box, unsaved)</option>';$('saved').value=s1;$('src').value=s2||(names[0]||'')}
+function cnt(){$('cnt').textContent=parse($('box').value).length+' numbers'}
+$('box').oninput=cnt;
+$('load').onclick=()=>{const n=$('saved').value;if(!n)return;$('name').value=n;$('box').value=lists[n].join(', ');cnt()};
+$('del').onclick=()=>{const n=$('saved').value;if(!n||!confirm('Delete "'+n+'"?'))return;delete lists[n];persist();fill();$('msg1').textContent='Deleted.'};
+$('new').onclick=()=>{$('name').value='';$('box').value='';$('saved').value='';cnt()};
+$('clean').onclick=()=>{$('box').value=parse($('box').value).join(', ');cnt()};
+$('save').onclick=()=>{const n=$('name').value.trim();const a=parse($('box').value);
+ if(!n){$('msg1').textContent='Please give the list a name.';return}
+ lists[n]=a;persist();fill();$('saved').value=n;$('box').value=a.join(', ');cnt();$('msg1').textContent='✅ Saved "'+n+'" ('+a.length+' numbers). Edit, replace or remove any time and Save again.'};
+$('dl').onclick=async()=>{const a=parse($('box').value);if(!a.length)return;const t=a.join(', ');const n=($('name').value.trim()||'numbers');
+ try{if(navigator.share){await navigator.share({title:n,text:t});return}}catch(e){if(e&&e.name==='AbortError')return}
+ try{await navigator.clipboard.writeText(t);$('msg1').textContent='Copied to clipboard – paste it in any notes app.'}catch(e){$('msg1').textContent='Select the text in the box and copy it.'}};
+$('tf').onchange=async e=>{const f=e.target.files[0];fileNums=f?parse(await f.text()):null;srcInfo()};
+function notes(){if(fileNums&&fileNums.length)return fileNums;const n=$('src').value;if(n==='__box')return parse($('box').value);return n&&lists[n]?lists[n]:[]}
+function srcInfo(){$('srcinfo').textContent=notes().length+' notepad numbers selected'+(fileNums?' (from file)':'')}
+function cnt2(){$('cnt2').textContent=new Set(parse($('man').value)).size+' scan numbers'}
+$('man').oninput=cnt2;$('src').onchange=()=>{fileNums=null;$('tf').value='';srcInfo()};
+// pattern helpers
+const shape=s=>{const m={};let c=0;return[...s].map(d=>m[d]??(m[d]='ABCD'[c++])).join('')};
+const eo=s=>[...s].map(d=>d%2?'O':'E').join('');
+const hl=s=>[...s].map(d=>d>=5?'H':'L').join('');
+const sumB=s=>{const t=[...s].reduce((a,d)=>a+ +d,0);const b=Math.floor(t/4)*4;return b+'-'+(b+3)};
+const srt=s=>[...s].sort().join('');
+const inc=(o,k)=>o[k]=(o[k]||0)+1;
+function stats(N){const S={m:N.length,shape:{},eo:{},hl:{},sum:{},pos:[{},{},{},{}]};
+ N.forEach(n=>{inc(S.shape,shape(n));inc(S.eo,eo(n));inc(S.hl,hl(n));inc(S.sum,sumB(n));[...n].forEach((d,i)=>inc(S.pos[i],d))});
+ S.mx={};['shape','eo','hl','sum'].forEach(k=>S.mx[k]=Math.max(1,...Object.values(S[k])));
+ S.mxpos=S.pos.reduce((a,p)=>a+Math.max(1,...Object.values(p)),0)/4;return S}
+function analyse(n,S){const m=S.m||1;
+ const sh=(S.shape[shape(n)]||0)/m,e=(S.eo[eo(n)]||0)/m,h=(S.hl[hl(n)]||0)/m,su=(S.sum[sumB(n)]||0)/m;
+ const po=[...n].reduce((a,d,i)=>a+(S.pos[i][d]||0),0)/4/m;
+ const score=100*(sh*m/S.mx.shape+e*m/S.mx.eo+h*m/S.mx.hl+su*m/S.mx.sum+po*m/S.mxpos)/5;
+ return{n,score:Math.round(score),sh,e,h,su,po}}
+// near finder: same digits jumbled, 1 digit different, numeric diff <=10
+function index(arr){const set=new Set(arr),perm={};arr.forEach(n=>(perm[srt(n)]??=[]).push(n));return{set,perm}}
+function nearOf(n,I){const out=[];const seen=new Set([n]);
+ for(let i=0;i<4;i++)for(let d=0;d<10;d++){if(String(d)==n[i])continue;const c=n.slice(0,i)+d+n.slice(i+1);if(I.set.has(c)&&!seen.has(c)){seen.add(c);out.push([c,'1 digit different'])}}
+ const v=+n;for(let k=-10;k<=10;k++){if(!k)continue;const x=v+k;if(x<0||x>9999)continue;const c=String(x).padStart(4,'0');if(I.set.has(c)&&!seen.has(c)){seen.add(c);out.push([c,'close value ('+(k>0?'+':'')+k+')'])}}
+ (I.perm[srt(n)]||[]).forEach(c=>{if(!seen.has(c)){seen.add(c);out.push([c,'same digits, jumbled'])}});
+ return out}
+function lastOf(n,I){const o=[];for(let d=0;d<10;d++){const c=n.slice(0,3)+d;if(c!==n&&I.set.has(c))o.push(c)}return o}
+const chip=(t,c)=>`<span style="display:inline-block;margin:2px;padding:2px 8px;border-radius:8px;border:1px solid var(--bd);${c||''}">${t}</span>`;
+let rows=[],asc=false;
+$('go').onclick=()=>{
+ const sc=[...new Set(parse($('man').value))],nb=[...new Set(notes())];
+ if(!sc.length){$('msg2').textContent='Type at least one 4 digit number in the scan box.';return}
+ if(!nb.length){$('srcinfo').textContent='Select a saved list (or file) with numbers first.';return}
+ const NI=index(nb),SI=index(sc),S=stats(nb);
+ rows=sc.map(n=>{const r=analyse(n,S);r.exact=NI.set.has(n);r.near=nearOf(n,NI);return r});
+ const ex=rows.filter(r=>r.exact),nr=rows.filter(r=>!r.exact&&r.near.length);
+ const inScan=nb.filter(n=>SI.set.has(n));
+ const rev=nb.filter(n=>!SI.set.has(n)).map(n=>[n,nearOf(n,SI)]).filter(x=>x[1].length);
+ let h=`<div class="card"><b>Summary</b><div class="mu">Scan: ${sc.length} numbers · Notepad: ${nb.length} numbers</div>`+
+ (ex.length?`<div class="match">🎉 ${ex.length} scan number${ex.length>1?'s are':' is'} in Notepad:<br>${ex.slice(0,30).map(r=>r.n).join(', ')}${ex.length>30?' …':''}</div>`:`<div class="nomatch">No scan number is exactly in your Notepad</div>`)+
+ `<div class="mu" style="margin-top:8px">Near numbers found for ${nr.length} scan number(s).</div></div>`;
+ const pairs=[];sc.forEach(n=>lastOf(n,NI).forEach(c=>pairs.push([n,c])));
+ h+=`<div class="card"><b>🔢 One number change</b><div class="mu">First 3 digits same, only the last digit different: ${pairs.length} pair(s)</div>`+
+ pairs.slice(0,60).map(([a,c])=>`<div class="res"><div>Scan <b>${a}</b></div><div class="tag">↔</div><div>Notepad <b>${c}</b></div><div class="tag">last digit ${a[3]}→${c[3]}</div></div>`).join('')+(pairs.length>60?`<div class="mu">+${pairs.length-60} more</div>`:'')+`</div>`;
+ h+=`<div class="card"><b>🔁 Notepad numbers present in Scan</b><div class="mu">${inScan.length} of ${nb.length} notepad numbers were added in Scan.</div><div>${inScan.slice(0,60).map(n=>chip(n)).join('')}${inScan.length>60?' …':''}</div></div>`;
+ h+=`<div class="card"><b>📍 Notepad numbers with a NEAR number in Scan</b><div class="mu">${rev.length} found (1 digit different, value within ±10, or same digits jumbled)</div>`+
+ rev.slice(0,40).map(([n,l])=>`<div class="res"><b>${n}</b><div class="tag">near: ${l.slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', ')}</div></div>`).join('')+(rev.length>40?`<div class="mu">+${rev.length-40} more</div>`:'')+`</div>`;
+ h+=`<div class="card"><b>📊 Pattern probability of each scan number</b><div class="mu">How closely each number follows the patterns of your Notepad list (repeat shape, odd/even, high/low, digit sum, digit per position). 100% = most common pattern in your list. This is similarity, not a chance of winning.</div><div class="row" style="margin-top:6px"><button class="btn" id="flip">🔥 Hottest first</button></div><div id="rl"></div></div>`;
+ $('out').innerHTML=h;asc=false;draw(50);$('out').scrollIntoView({behavior:'smooth'})};
+function draw(lim){const arr=[...rows].sort((a,b)=>asc?a.score-b.score:b.score-a.score);const el=$('rl');
+ $('flip').textContent=asc?'❄️ Least hot first (tap to flip)':'🔥 Hottest first (tap to flip)';$('flip').onclick=()=>{asc=!asc;draw(lim)};
+ el.innerHTML=arr.slice(0,lim).map(r=>`<div class="res" style="align-items:flex-start"><div><b>${r.n}</b>${r.exact?chip('✓ in Notepad','background:var(--ok);color:#fff;border-color:var(--ok)'):''}</div>
+ <div style="flex:1;padding:0 8px"><div class="bar" style="width:100%"><i style="width:${r.score}%"></i></div>
+ <div class="mu">${shape(r.n)}: ${Math.round(r.sh*100)}% · ${eo(r.n)}: ${Math.round(r.e*100)}% · ${hl(r.n)}: ${Math.round(r.h*100)}% · sum ${sumB(r.n)}: ${Math.round(r.su*100)}%</div>
+ ${r.near.length?`<div class="mu">near Notepad: ${r.near.slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', ')}</div>`:''}</div><div><b>${r.score}%</b></div></div>`).join('')+
+ (arr.length>lim?`<div class="row"><button class="btn big" id="all">Show all ${arr.length}</button></div>`:'');
+ const b=$('all');if(b)b.onclick=()=>draw(arr.length)}
+fill();cnt();cnt2();srcInfo();
+</script></body></html>
